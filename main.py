@@ -26,41 +26,52 @@ brown = (165, 42, 42)
 
 
 class Tile:
-    def __init__(self, x: int, y: int, gridSize: int, state: int = 0, color=()):
-        self.x = x
-        self.y = y
+    def __init__(self, row: int, col: int, gridSize: int, state: int = 0, color=()):
+        self.row = row
+        self.col = col
         self.gridSize = gridSize
-        self.phase = randint(0, 2000)
-        self.time = 0
-        self.timeIncrement = randint(100,1000) / 100000
+        self.x = self.row * self.gridSize
+        self.y = self.col * self.gridSize
 
-        self.generateAngle()
+        """
+        Cool wave like structure
+
+        self.sum = self.row + self.col
+        self.arrowLen = self.sum / 10
+        self.time = self.sum * 20
+        self.timeIncrement = -3       
+        """
+        #self.generateAngle()
+        self.choice = randint(0,1)
 
         self.state = state
         self.color = color if color else lightGrey
 
         # make a rect for mouse collision
         self.rect = pg.Rect(self.x, self.y, gridSize, gridSize)
+        self.center = Vec(self.rect.center)
 
-    def generateAngle(self):
-        scale = 0.1
+    def generateAngle(self, mousePos):
+        """
+        Cool wave like structure
+
         self.time += self.timeIncrement
-        #self.time += 0.01
-
-        #noise_val = pnoise2(self.x * scale + self.time, self.y * scale + self.time + self.phase)
-        noise_val = sin(self.time+self.phase)
-
-        angle = noise_val * 360
-        self.angleDegree = angle
-        self.angle = Vec(1, 0).rotate(angle)
-
+        self.angle = Vec(1, 0).rotate(self.time)
+        """
+        mousePos = Vec(mousePos)
+        if randint(0,1) == 1:
+            self.angle = mousePos - (self.center+Vec(0.001))
+        else:
+            self.angle = (self.center+Vec(0.001)) - mousePos
+        self.angle.normalize_ip()
+        
     def makeArrow(self, win):
-        pg.draw.line(win, lightGrey, (self.x, self.y), self.pos2)
+        pg.draw.line(win, lightGrey, self.center, self.pos2)
         pg.draw.circle(win, lightGrey, self.pos2, 1)
 
-    def update(self):
-        self.generateAngle()
-        self.pos2 = (self.angle * (self.gridSize * 0.5)) + Vec(self.x, self.y)
+    def update(self, mousePos):
+        self.generateAngle(mousePos)
+        self.pos2 = (self.angle * (self.gridSize)) + self.center
 
     def render(self, win, highlight=False):
         size = self.gridSize-10
@@ -91,20 +102,21 @@ class Game:
         pg.display.set_caption(f"Grid simulation {self.id}")
 
         self.gridSize = 20
+        self.rows = self.width // self.gridSize
+        self.cols = self.height // self.gridSize
         self.tiles = []
 
         # Create grid of cyan tiles
-        for x in range(0, self.width, self.gridSize):
-            for y in range(0, self.height, self.gridSize):
-                self.tiles.append(Tile(x, y, self.gridSize, color=black2))
+        for r in range(0, self.rows):
+            for c in range(0, self.cols):
+                self.tiles.append(Tile(r, c, self.gridSize, color=black2))
 
         # Add one red tile
         #self.tiles.append(Tile(400, 300, self.gridSize, color=red))
 
-    def drawGrid(self):
-        mouse_pos = pg.mouse.get_pos()
+    def drawGrid(self):    
         for tile in self.tiles:
-            highlight = tile.rect.collidepoint(mouse_pos)  # 🖱️ check mouse hover
+            highlight = tile.rect.collidepoint(self.mousePos)  # 🖱️ check mouse hover
             tile.render(self.screen, highlight)
             tile.makeArrow(self.screen)
 
@@ -115,8 +127,9 @@ class Game:
             pg.draw.line(self.screen, black2, (0, y), (self.width, y), thickness)
 
     def update(self):
+        self.mousePos = pg.mouse.get_pos()
         for tile in self.tiles:
-            tile.update()
+            tile.update(self.mousePos)
 
     def render(self):
         self.screen.fill(black)
