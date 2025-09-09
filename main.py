@@ -58,7 +58,13 @@ class Tile:
 
     def generateColor(self, value):
         highestValueRGB = 212
-        value %= highestValueRGB 
+
+        # Make value oscillate smoothly between 0 and highestValueRGB
+        value = value % (highestValueRGB * 2)
+        if value > highestValueRGB:
+            value = highestValueRGB * 2 - value  # reflect back
+
+        # Now value goes 0 → highestValueRGB → 0 smoothly
         dimness = 255 - value
 
         r = max(self.baseColor[0] - dimness, 0)
@@ -146,20 +152,30 @@ class Game:
         self.cols = self.height // self.gridSize
         self.tiles = []
 
-        # Create grid of cyan tiles
+        # Create grid 
         counter = 0
         for r in range(0, self.rows):
             for c in range(0, self.cols):
                 self.tiles.append(Tile(counter, r, c, self.gridSize, color=black2))
                 counter+=1
 
-        # Add one red tile
-        #self.tiles.append(Tile(400, 300, self.gridSize, color=red))
+        # For now lets assume image is 800x600 by default
+        self.image = pg.image.load("image.png").convert()
+        self.imageColors = self.convertImg(self.image)
+
+    def convertImg(self, image):
+        colors = []
+        for row in range(0, self.rows):
+            for col in range(0, self.cols):
+                chunkColors = []
+                # For each pixel grab a color, save it to chunkColors and average all color values by chunkColors length
+        return colors
 
     def drawGrid(self):    
         for tile in self.tiles:
             highlight = tile.rect.collidepoint(self.mousePos)  # 🖱️ check mouse hover
             tile.render(self.screen, highlight)
+        for tile in self.tiles:
             tile.makeArrow(self.screen)
 
     def drawOutline(self, thickness):

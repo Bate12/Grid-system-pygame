@@ -1,10 +1,10 @@
 v.0.1
 
  - Make arrows point at highlited
+ - Add more color
+ - Make some epic patterns
 
  __________________________________________________
 
- - Add more color
- - Make some epic patterns
  - Make the colors inherit from an image
  - Fix performance issues
