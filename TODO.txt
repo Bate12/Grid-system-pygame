@@ -3,8 +3,9 @@ v.0.1
  - Make arrows point at highlited
  - Add more color
  - Make some epic patterns
-
+ - Make the colors inherit from an image
  __________________________________________________
 
- - Make the colors inherit from an image
+ - make images change via button
+ - (if possible) drag and drop images right into the pygame window
  - Fix performance issues
