@@ -1,28 +1,86 @@
 from typing import List
+import os
 import pygame as pg
 from pygame.math import Vector2 as Vec
 from random import randint, choice
-from noise import pnoise2
 from math import sin
 
 
 # 🎨 Colors
-white = (255,255,255)
-black = (0, 0, 0)
-black2 = (49,53,63)
-red = (255, 0, 0)
-green = (0, 255, 0)
-limeGreen = (50,205,50)
-blue = (0, 0, 255)
-yellow = (255, 255, 0)
-cyan = (0, 255, 255)
-magenta = (214, 122, 177)
-gray = (128, 128, 128)
-lightGrey = (230, 230, 230)
-orange = (255, 165, 0)
-purple = (128, 0, 128)
-pink = (255, 192, 203)
-brown = (165, 42, 42)
+white      = [255, 255, 255, 255]
+black      = [0, 0, 0, 255]
+black2     = [49, 53, 63, 255]
+red        = [255, 0, 0, 255]
+green      = [0, 255, 0, 255]
+limeGreen  = [50, 205, 50, 255]
+blue       = [0, 0, 255, 255]
+yellow     = [255, 255, 0, 255]
+cyan       = [0, 255, 255, 255]
+magenta    = [214, 122, 177, 255]
+gray       = [128, 128, 128, 255]
+lightGrey  = [230, 230, 230, 255]
+orange     = [255, 165, 0, 255]
+purple     = [128, 0, 128, 255]
+pink       = [255, 192, 203, 255]
+brown      = [165, 42, 42, 255]
+
+class Text:
+    def __init__(self, text, x, y, font_size=30, font_color=(0,0,0)):
+        self.Pos = Vec(x, y)
+        self.text = text
+        self.font_size = font_size
+        self.font_color = font_color
+        self.isVisable = True
+        
+        self.fontPath = r"font.ttf"
+        self.font = pg.font.Font(self.fontPath, self.font_size)
+        self.surface = self.font.render(self.text, True, self.font_color)
+        self.rect = self.surface.get_rect(topleft=self.Pos)
+
+    def update(self, new_text):
+        self.text = new_text
+        self.surface = self.font.render(self.text, True, self.font_color)
+
+    def render(self, win):
+        if self.isVisable:
+            win.blit(self.surface, self.rect)
+
+class Button():
+    def __init__(self, position, size, text : str, onClick):
+        self.x, self.y = position
+        self.width, self.height = size
+        self.onClick = onClick
+
+        self.alpha = 128
+        self.color = black
+        self.hoverColor = lightGrey
+        self.color[3] = self.alpha
+        self.hoverColor[3] = self.alpha
+        
+        self.surface = pg.Surface((self.width, self.height), pg.SRCALPHA)
+        self.rect = self.surface.get_rect()
+        self.rect.topleft = (self.x, self.y)
+        self.localRect = self.surface.get_rect()
+        self.center = Vec(self.rect.center)
+
+        self.text = Text(text, self.x, self.y, font_size=18, font_color=white)
+        self.text.rect.center = self.center
+
+        self.isHover = False
+
+    def update(self, mousePos, clicking):
+        self.isHover = self.rect.collidepoint(mousePos)
+        if self.isHover and clicking:
+            if self.onClick:
+                self.onClick()
+
+    def render(self, win):
+        pg.draw.rect(self.surface, self.color, self.localRect, border_radius=5)
+        if self.isHover:
+            pg.draw.rect(self.surface, self.hoverColor, self.localRect, width=5, border_radius=5)
+        win.blit(self.surface, (self.x, self.y))
+        self.text.render(win)
+            
 
 
 class Tile:
@@ -38,7 +96,7 @@ class Tile:
         self.sum = self.row + self.col
         self.arrowLen = self.sum / 10
         self.time = self.sum * 20
-        self.timeIncrement = 2       
+        self.timeIncrement = 10     
 
         self.state = state
         self.color = color if color else lightGrey
@@ -86,6 +144,7 @@ class Tile:
         rect.topleft = (self.x + self.renderOffsetHalf, self.y + self.renderOffsetHalf)
         pg.draw.rect(win, self.color, rect)
 
+        return
         if highlight:
             pg.draw.rect(win, limeGreen, rect, 1)
 
@@ -113,15 +172,51 @@ class Game:
         self.cols = self.height // self.gridSize
         self.tiles = []
 
-        self.image = pg.image.load("image4.png").convert()
-        self.image = pg.transform.scale(self.image, (self.width, self.height))
-        self.imageColors = self.convertImg(self.image)
+        # Image handling
+        self.imagesPath = "images/"
+        self.imagesColorData = self.getImagesData()
+        self.imageIndex = 0
+        self.imageColors = self.imagesColorData[0]
+        
         # Create grid 
         counter = 0
         for r in range(0, self.rows):
             for c in range(0, self.cols):
                 self.tiles.append(Tile(counter, r, c, self.gridSize, color=self.imageColors[counter]))
                 counter+=1
+
+        # UI elements:
+        self.ui = []
+        self.button = Button((10, 10), (150, 50), "Change Image", self.cycleImage)
+        self.ui.append(self.button)
+
+        # Event handling
+        self.mouseLeftClick = False
+        self.testCount = 0
+
+    def getImagesData(self):
+        images = [f for f in os.listdir(self.imagesPath) if os.path.isfile(os.path.join(self.imagesPath, f))]
+        imgColors = []
+        for image in images:
+            image = pg.image.load(self.imagesPath + image).convert()
+            image = pg.transform.scale(image, (self.width, self.height))
+            imageColors = self.convertImg(image)
+            imgColors.append(imageColors)
+        return imgColors
+
+    def cycleImage(self):
+        self.imageIndex += 1
+        self.imageIndex %= len(self.imagesColorData)
+        self.imageColors = self.imagesColorData[self.imageIndex]
+
+        counter = 0
+        for tile in self.tiles:
+            tile.baseColor = self.imageColors[counter]
+            counter += 1
+
+    def printTest(self):
+        self.testCount+=1
+        print(f"{self.testCount} - Hello world")
 
     def convertImg(self, image : pg.Surface):
         colors = []
@@ -168,6 +263,9 @@ class Game:
 
     def update(self):
         self.mousePos = pg.mouse.get_pos()
+        for element in self.ui:
+            if type(element) != Text:
+                element.update(self.mousePos, self.mouseLeftClick)
         for tile in self.tiles:
             tile.update(self.mousePos)
 
@@ -175,6 +273,8 @@ class Game:
         self.screen.fill(black)
         self.drawOutline(1)
         self.drawGrid()
+        for element in self.ui:
+            element.render(self.screen)
         pg.display.flip()
 
     def updateTitle(self, string):
@@ -184,11 +284,16 @@ class Game:
         clock = pg.time.Clock()
         running = True
         while running:
+            self.mouseLeftClick = False
             for event in pg.event.get():
                 if event.type == pg.QUIT:
                     running = False
                 elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                     running = False
+
+                if event.type == pg.MOUSEBUTTONUP and event.button == 1:
+                    self.mouseLeftClick = True
+                    
 
             clock.tick(60)
             fps = str(round(clock.get_fps(), 2))
