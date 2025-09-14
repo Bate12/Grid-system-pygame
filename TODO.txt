@@ -10,6 +10,6 @@ v.0.1
  __________________________________________________
 
  - (if possible) drag and drop images right into the pygame window
- - Slider for modifying speed (timeIncrement), gridSize
+ - fix the slider, no custom code
  - Loading screen when getting color data from image
  - Fix performance issues

@@ -1,9 +1,13 @@
 from typing import List
 import os
 import pygame as pg
+import pygame_widgets
+from pygame_widgets.slider import Slider
+from pygame_widgets.textbox import TextBox
 from pygame.math import Vector2 as Vec
 from random import randint, choice
 from math import sin
+import json
 
 
 # 🎨 Colors
@@ -23,6 +27,9 @@ orange     = [255, 165, 0, 255]
 purple     = [128, 0, 128, 255]
 pink       = [255, 192, 203, 255]
 brown      = [165, 42, 42, 255]
+
+
+    
 
 class Text:
     def __init__(self, text, x, y, font_size=30, font_color=(0,0,0)):
@@ -80,6 +87,48 @@ class Button():
             pg.draw.rect(self.surface, self.hoverColor, self.localRect, width=5, border_radius=5)
         win.blit(self.surface, (self.x, self.y))
         self.text.render(win)
+
+# This class below is very AI, be careful :)
+# Its atcually funny, because its very not well made? like omg AI is ass for this.
+# Generally, I just use it for speeding up mundane tasks like making the colors, or some difficult line of code I dont know how to make
+# It's atcually crazy to me, how far I've come, coding is a hobby now lets goo :D
+
+# 12.9.2025 - Bate
+
+"""
+class Slider(Button):
+    def __init__(self, position, size, text="Slider", onClick=None, min_val=0, max_val=100, start_val=50):
+        super().__init__(position, size, text, onClick)
+
+        # Add Slider-specific attributes
+        self.min_val = min_val
+        self.max_val = max_val
+        self.value = start_val
+        self.handle_rect = pg.Rect(self.x, self.y, self.width, self.height)  # slider knob/handle
+
+    def update(self, mousePos, clicking):
+        # Use Button hover logic
+        super().update(mousePos, clicking)
+
+        # Add slider-specific behavior (dragging the handle)
+        if self.isHover and clicking:
+            relative_x = mousePos[0] - self.x
+            self.value = int((relative_x / self.width) * (self.max_val - self.min_val) + self.min_val)
+            self.value = max(self.min_val, min(self.value, self.max_val))  # clamp
+
+            # Update handle position
+            self.handle_rect.centerx = self.x + int((self.value - self.min_val) / (self.max_val - self.min_val) * self.width)
+
+    def render(self, win):
+        # Draw base button background
+        super().render(win)
+
+        # Draw slider line
+        pg.draw.line(win, (200, 200, 200), (self.x, self.y + self.height // 2), (self.x + self.width, self.y + self.height // 2), 4)
+
+        # Draw slider handle
+        pg.draw.rect(win, (255, 0, 0), self.handle_rect)
+"""
             
 
 
@@ -96,7 +145,7 @@ class Tile:
         self.sum = self.row + self.col
         self.arrowLen = self.sum / 10
         self.time = self.sum * 20
-        self.timeIncrement = 10     
+        self.timeIncrement = 5
 
         self.state = state
         self.color = color if color else lightGrey
@@ -137,6 +186,7 @@ class Tile:
         self.generateAngle()
         self.generateColor(self.time)
         self.pos2 = (self.angle * (self.gridSize*2)) + self.center
+        
 
     def render(self, win, highlight=False):
         size = self.gridSize-self.renderOffset
@@ -166,17 +216,22 @@ class Game:
         self.screen = pg.display.set_mode((self.width, self.height))
         pg.display.set_caption(f"Grid simulation {self.id}")
 
-        self.gridSize = 16
+        self.gridSize = 12
         self.gridSizeSurface = self.gridSize * self.gridSize
         self.rows = self.width // self.gridSize
         self.cols = self.height // self.gridSize
         self.tiles = []
+        
 
         # Image handling
         self.imagesPath = "images/"
         self.imagesColorData = self.getImagesData()
         self.imageIndex = 0
         self.imageColors = self.imagesColorData[0]
+
+        self.data = {}
+        self.cashe = self.initCashe()
+        self.cashe = self.updateCashe(self.cashe)
         
         # Create grid 
         counter = 0
@@ -188,11 +243,57 @@ class Game:
         # UI elements:
         self.ui = []
         self.button = Button((10, 10), (150, 50), "Change Image", self.cycleImage)
+
+        self.slider = Slider(self.screen, 10, 220, 150, 10, min=0, max=99, step=1)
+        self.output = TextBox(self.screen, 10, 240, 100, 50, fontSize=20)
+        self.output.disable()
+
+        #self.slider = Slider((200, 10), (2,64), "Speed")
+        #self.slider.onClick = self.slider.
         self.ui.append(self.button)
+        #self.ui.append(self.slider)
 
         # Event handling
         self.mouseLeftClick = False
         self.testCount = 0
+
+    def isColorSame(self, color1, color2):
+        if color1[0] == color2[0] and color1[1] == color2[1] and color1[2] == color2[2]:
+            return True
+        return False
+
+    def initCashe(self):
+        if os.path.exists("cashe/colorData.json"):
+            with open("cashe/colorData.json", "r", encoding="utf-8") as f:
+                try:
+                    data = json.load(f)
+                except json.JSONDecodeError:
+                    data = {}
+        else:
+            data = {}
+
+        return data
+
+    def updateCashe(self, data):
+        # Determine the starting index
+        if data:
+            i = max(map(int, data.keys())) + 1
+        else:
+            i = 0
+
+        # Add new entries
+        for chunkColor in self.imagesColorData:
+            if chunkColor in data.values():
+                continue
+            data[i] = chunkColor
+            i += 1
+
+        # Save updated data
+        with open("cashe/colorData.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+
+        return data
+
 
     def getImagesData(self):
         images = [f for f in os.listdir(self.imagesPath) if os.path.isfile(os.path.join(self.imagesPath, f))]
@@ -264,8 +365,9 @@ class Game:
     def update(self):
         self.mousePos = pg.mouse.get_pos()
         for element in self.ui:
-            if type(element) != Text:
+            if type(element) == Button:
                 element.update(self.mousePos, self.mouseLeftClick)
+            
         for tile in self.tiles:
             tile.update(self.mousePos)
 
@@ -273,7 +375,15 @@ class Game:
         self.screen.fill(black)
         self.drawOutline(1)
         self.drawGrid()
+        
         for element in self.ui:
+            if type(element) == Slider:
+                self.output.setText(str(self.slider.getValue()))
+
+                pygame_widgets.update(self.events)
+                pg.display.update()
+                continue
+
             element.render(self.screen)
         pg.display.flip()
 
@@ -285,7 +395,8 @@ class Game:
         running = True
         while running:
             self.mouseLeftClick = False
-            for event in pg.event.get():
+            self.events = pg.event.get()
+            for event in self.events:
                 if event.type == pg.QUIT:
                     running = False
                 elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
