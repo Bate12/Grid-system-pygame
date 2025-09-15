@@ -222,6 +222,8 @@ class Game:
         self.cols = self.height // self.gridSize
         self.tiles = []
         
+        self.data = {}
+        self.cashe = self.initCashe()
 
         # Image handling
         self.imagesPath = "images/"
@@ -229,8 +231,6 @@ class Game:
         self.imageIndex = 0
         self.imageColors = self.imagesColorData[0]
 
-        self.data = {}
-        self.cashe = self.initCashe()
         self.cashe = self.updateCashe(self.cashe)
         
         # Create grid 
@@ -321,6 +321,7 @@ class Game:
 
     def convertImg(self, image : pg.Surface):
         colors = []
+        i = 0
         for row in range(0, self.rows):
             for col in range(0, self.cols):
                 chunkColors = []
@@ -345,6 +346,11 @@ class Game:
                 colorAvg[1] //= self.gridSizeSurface
                 colorAvg[2] //= self.gridSizeSurface
 
+                for id, casheColors in self.cashe.items():
+                    if casheColors[i] == colorAvg:
+                        return casheColors
+                    #print(f"{id} - {casheColors}")
+                i += 1
                 colors.append(colorAvg)
 
         return colors
