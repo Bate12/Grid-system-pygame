@@ -8,6 +8,9 @@ from pygame.math import Vector2 as Vec
 from random import randint, choice
 from math import sin
 import json
+import cProfile, pstats
+from tkinter import Tk
+from tkinter.filedialog import askopenfilename
 
 
 # 🎨 Colors
@@ -53,7 +56,7 @@ class Text:
             win.blit(self.surface, self.rect)
 
 class Button():
-    def __init__(self, position, size, text : str, onClick):
+    def __init__(self, position, size, text : str, onClick=None, fontSize = 20):
         self.x, self.y = position
         self.width, self.height = size
         self.onClick = onClick
@@ -68,9 +71,10 @@ class Button():
         self.rect = self.surface.get_rect()
         self.rect.topleft = (self.x, self.y)
         self.localRect = self.surface.get_rect()
-        self.center = Vec(self.rect.center)
+        self.center = Vec(self.rect.centerx, self.rect.centery + 4)
 
-        self.text = Text(text, self.x, self.y, font_size=18, font_color=white)
+        self.fontSize = fontSize
+        self.text = Text(text, self.x, self.y, font_size=self.fontSize, font_color=white)
         self.text.rect.center = self.center
 
         self.isHover = False
@@ -155,6 +159,7 @@ class Tile:
         self.center = Vec(self.rect.center)
         self.renderOffset = 2
         self.renderOffsetHalf= self.renderOffset / 2
+        self.size = self.gridSize - self.renderOffset
 
     def generateColor(self, value):
         # For a different design try: max(self.baseColor)
@@ -188,15 +193,8 @@ class Tile:
         self.pos2 = (self.angle * (self.gridSize*2)) + self.center
         
 
-    def render(self, win, highlight=False):
-        size = self.gridSize-self.renderOffset
-        rect = pg.Rect(0, 0, size, size)
-        rect.topleft = (self.x + self.renderOffsetHalf, self.y + self.renderOffsetHalf)
-        pg.draw.rect(win, self.color, rect)
-
-        return
-        if highlight:
-            pg.draw.rect(win, limeGreen, rect, 1)
+    def render(self, win):
+        pg.draw.rect(win, self.color, self.rect)
 
     def deleteOtherTile(self, tiles: List):
         for tile in tiles:
@@ -226,7 +224,7 @@ class Game:
         self.cashe = self.initCashe()
 
         # Image handling
-        self.imagesPath = "images/"
+        self.imagesPath = "img_MC/"
         self.imagesColorData = self.getImagesData()
         self.imageIndex = 0
         self.imageColors = self.imagesColorData[0]
@@ -242,20 +240,81 @@ class Game:
 
         # UI elements:
         self.ui = []
-        self.button = Button((10, 10), (150, 50), "Change Image", self.cycleImage)
+        self.buttonBack = Button((10, self.height//2), (50, 40), "<", self.cycleImageBack, fontSize=40)
+        self.buttonUp = Button((self.width - 60, self.height//2), (50, 40), ">", self.cycleImage, fontSize=40)
+        self.buttonIncSize = Button((80, 50), (50, 40), "+", self.increaseGridSize, fontSize=40)
+        self.buttonDecSize = Button((10, 50), (50, 40), "-", self.decreaseGridSize, fontSize=40)
+        self.txtGridSize = Text(f"Grid Size - {self.gridSize}", 10, 10, 20, white)
+        self.buttonSelectImg = Button((10, 100), (150, 40), "Select Image", self.selectImageFile, fontSize=20)
 
         self.slider = Slider(self.screen, 10, 220, 150, 10, min=0, max=99, step=1)
-        self.output = TextBox(self.screen, 10, 240, 100, 50, fontSize=20)
-        self.output.disable()
 
         #self.slider = Slider((200, 10), (2,64), "Speed")
         #self.slider.onClick = self.slider.
-        self.ui.append(self.button)
+        self.ui.append(self.buttonUp)
+        self.ui.append(self.buttonBack)
+        self.ui.append(self.buttonIncSize)
+        self.ui.append(self.buttonDecSize)
+        self.ui.append(self.txtGridSize)
+        self.ui.append(self.buttonSelectImg)
+
         #self.ui.append(self.slider)
 
         # Event handling
         self.mouseLeftClick = False
         self.testCount = 0
+
+    def selectImageFile(self):
+        Tk().withdraw()  # hide the root window
+
+        filename = askopenfilename(
+            title="Select an image file",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.bmp *.gif"),
+                ("All files", "*.*")
+            ]
+        )
+
+        image = pg.image.load(filename).convert()
+        imageColors = self.convertImg(image)
+        self.imagesColorData.append(imageColors)
+        self.imageColors = self.imagesColorData[-1]
+
+        counter = 0
+        for tile in self.tiles:
+            tile.baseColor = self.imageColors[counter]
+            counter+=1
+
+    def decreaseGridSize(self):
+        self.gridSize -= 2
+        self.handleSizeChange()
+
+    def increaseGridSize(self):
+        self.gridSize += 2
+        self.handleSizeChange()
+        
+    def handleSizeChange(self):
+        self.txtGridSize.update(f"Grid Size - {self.gridSize}")
+
+        self.gridSizeSurface = self.gridSize * self.gridSize
+        self.rows = self.width // self.gridSize
+        self.cols = self.height // self.gridSize
+        self.tiles = []
+
+        # Image handling
+        self.imagesPath = "img_MC/"
+        self.imagesColorData = self.getImagesData()
+        self.imageIndex = 0
+        self.imageColors = self.imagesColorData[0]
+
+        self.cashe = self.updateCashe(self.cashe)
+        
+        # Create grid 
+        counter = 0
+        for r in range(0, self.rows):
+            for c in range(0, self.cols):
+                self.tiles.append(Tile(counter, r, c, self.gridSize, color=self.imageColors[counter]))
+                counter+=1
 
     def isColorSame(self, color1, color2):
         if color1[0] == color2[0] and color1[1] == color2[1] and color1[2] == color2[2]:
@@ -300,10 +359,19 @@ class Game:
         imgColors = []
         for image in images:
             image = pg.image.load(self.imagesPath + image).convert()
-            image = pg.transform.scale(image, (self.width, self.height))
             imageColors = self.convertImg(image)
             imgColors.append(imageColors)
         return imgColors
+    
+    def cycleImageBack(self):
+        self.imageIndex -= 1
+        self.imageIndex %= len(self.imagesColorData)
+        self.imageColors = self.imagesColorData[self.imageIndex]
+
+        counter = 0
+        for tile in self.tiles:
+            tile.baseColor = self.imageColors[counter]
+            counter += 1
 
     def cycleImage(self):
         self.imageIndex += 1
@@ -319,46 +387,50 @@ class Game:
         self.testCount+=1
         print(f"{self.testCount} - Hello world")
 
-    def convertImg(self, image : pg.Surface):
+    def convertImg(self, image: pg.Surface):
+        image = pg.transform.scale(image, (self.width, self.height))
         colors = []
-        i = 0
+        total_chunks = self.rows * self.cols
+
         for row in range(0, self.rows):
             for col in range(0, self.cols):
-                chunkColors = []
-                rowPos = row * self.gridSize
-                colPos = col * self.gridSize
+                color_sum = [0, 0, 0]
+                x0 = row * self.gridSize
+                y0 = col * self.gridSize
 
-                colorAvg = [0, 0, 0]
-                for x in range(rowPos, rowPos + self.gridSize):
-                    for y in range(colPos, colPos + self.gridSize):
-                        pixelColor = image.get_at((x, y))
-                        chunkColors.append(pixelColor)
+                for x in range(x0, x0 + self.gridSize):
+                    for y in range(y0, y0 + self.gridSize):
+                        r, g, b, *_ = image.get_at((x, y))
+                        color_sum[0] += r
+                        color_sum[1] += g
+                        color_sum[2] += b
 
-                        r = pixelColor[0]
-                        g = pixelColor[1]
-                        b = pixelColor[2]
+                colorAvg = [
+                    color_sum[0] // self.gridSizeSurface,
+                    color_sum[1] // self.gridSizeSurface,
+                    color_sum[2] // self.gridSizeSurface
+                ]
 
-                        colorAvg[0] += r
-                        colorAvg[1] += g
-                        colorAvg[2] += b
+                # For the first chunk only: check cache for a full cached palette match
+                if len(colors) == 0 and self.cashe:
+                    for _id, cached_colors in self.cashe.items():
+                        # ensure cached_colors length matches expected and first color matches
+                        if isinstance(cached_colors, list) and len(cached_colors) == total_chunks and cached_colors[0] == colorAvg:
+                            return cached_colors
 
-                colorAvg[0] //= self.gridSizeSurface
-                colorAvg[1] //= self.gridSizeSurface
-                colorAvg[2] //= self.gridSizeSurface
-
-                for id, casheColors in self.cashe.items():
-                    if casheColors[i] == colorAvg:
-                        return casheColors
-                    #print(f"{id} - {casheColors}")
-                i += 1
                 colors.append(colorAvg)
+
+        # Sanity check
+        if len(colors) != total_chunks:
+            raise ValueError(f"convertImg returned {len(colors)} colors but expected {total_chunks}")
 
         return colors
 
+
     def drawGrid(self):    
         for tile in self.tiles:
-            highlight = tile.rect.collidepoint(self.mousePos) 
-            tile.render(self.screen, highlight)
+            tile.update(self.mousePos)
+            tile.render(self.screen)
         for tile in self.tiles:
             tile.makeArrow(self.screen)
 
@@ -373,25 +445,15 @@ class Game:
         for element in self.ui:
             if type(element) == Button:
                 element.update(self.mousePos, self.mouseLeftClick)
-            
-        for tile in self.tiles:
-            tile.update(self.mousePos)
 
     def render(self):
         self.screen.fill(black)
-        self.drawOutline(1)
+        #self.drawOutline(1)
         self.drawGrid()
         
         for element in self.ui:
-            if type(element) == Slider:
-                self.output.setText(str(self.slider.getValue()))
-
-                pygame_widgets.update(self.events)
-                pg.display.update()
-                continue
-
             element.render(self.screen)
-        pg.display.flip()
+        pg.display.update()
 
     def updateTitle(self, string):
         pg.display.set_caption(f"Grid simulation {self.id} - {string} FPS")
@@ -421,7 +483,20 @@ class Game:
 
         pg.quit()
 
-
 if __name__ == "__main__":
     game = Game("v0.1")
     game.run()
+
+"""
+ Profiler start
+if __name__ == "__main__":
+    profiler = cProfile.Profile()
+    profiler.enable()
+    
+    game = Game("v0.1")
+    game.run()
+    
+    profiler.disable()
+    stats = pstats.Stats(profiler).sort_stats("cumtime")
+    stats.print_stats(30)  # top 30 slowest calls
+"""
