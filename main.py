@@ -225,6 +225,7 @@ class Game:
 
         # Image handling
         self.imagesPath = "img_MC/"
+        self.imagesPaths = [f for f in os.listdir(self.imagesPath) if os.path.isfile(os.path.join(self.imagesPath, f))]
         self.imagesColorData = self.getImagesData()
         self.imageIndex = 0
         self.imageColors = self.imagesColorData[0]
@@ -265,7 +266,7 @@ class Game:
         self.testCount = 0
 
     def selectImageFile(self):
-        Tk().withdraw()  # hide the root window
+        #Tk().withdraw()  # hide the root window
 
         filename = askopenfilename(
             title="Select an image file",
@@ -275,10 +276,14 @@ class Game:
             ]
         )
 
+        if not filename:
+            return
+
+        self.imagesPaths.append(filename)
         image = pg.image.load(filename).convert()
         imageColors = self.convertImg(image)
-        self.imagesColorData.append(imageColors)
-        self.imageColors = self.imagesColorData[-1]
+        self.imagesColorData.insert(self.imageIndex,imageColors)
+        self.imageColors = self.imagesColorData[self.imageIndex]
 
         counter = 0
         for tile in self.tiles:
@@ -287,6 +292,8 @@ class Game:
 
     def decreaseGridSize(self):
         self.gridSize -= 2
+        if self.gridSize <= 0:
+            return
         self.handleSizeChange()
 
     def increaseGridSize(self):
@@ -302,10 +309,8 @@ class Game:
         self.tiles = []
 
         # Image handling
-        self.imagesPath = "img_MC/"
         self.imagesColorData = self.getImagesData()
-        self.imageIndex = 0
-        self.imageColors = self.imagesColorData[0]
+        self.imageColors = self.imagesColorData[self.imageIndex]
 
         self.cashe = self.updateCashe(self.cashe)
         
@@ -329,6 +334,7 @@ class Game:
                 except json.JSONDecodeError:
                     data = {}
         else:
+            open("myfile.txt", "x")
             data = {}
 
         return data
@@ -355,10 +361,11 @@ class Game:
 
 
     def getImagesData(self):
-        images = [f for f in os.listdir(self.imagesPath) if os.path.isfile(os.path.join(self.imagesPath, f))]
         imgColors = []
-        for image in images:
-            image = pg.image.load(self.imagesPath + image).convert()
+        for path in self.imagesPaths:
+            if "/" not in path:
+                path = self.imagesPath + path
+            image = pg.image.load(path).convert()
             imageColors = self.convertImg(image)
             imgColors.append(imageColors)
         return imgColors

@@ -9,9 +9,13 @@ v.0.1
  - Fix performance issues (almost)
  - Select image in Explorer
  - + or - gridSize (cashe getting too slow, needs fix)
+ - BUG FIXED: when you Select an image, and change gridSize, image gets lost
+
 
  __________________________________________________
 
+ - BUG: convertImg method sometimes grabs wrong image from cashe due to same color conflict
+ - distribute cashe into different files via gridSize (path = colorData-12.json)
  - (if possible) drag and drop images right into the pygame window
  - Loading screen when getting color data from image
  
