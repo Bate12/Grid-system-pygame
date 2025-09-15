@@ -6,10 +6,12 @@ v.0.1
  - Make the colors inherit from an image
  - add UI
  - make images change via button 
+ - Fix performance issues (almost)
+ - Select image in Explorer
+ - + or - gridSize (cashe getting too slow, needs fix)
 
  __________________________________________________
 
  - (if possible) drag and drop images right into the pygame window
- - fix the slider, no custom code
  - Loading screen when getting color data from image
- - Fix performance issues
+ 
