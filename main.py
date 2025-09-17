@@ -14,7 +14,7 @@ from tkinter.filedialog import askopenfilename, askdirectory
 import hashlib
 import shutil
 import subprocess
-import pyinstaller
+#import pyinstaller
 
 
 # 🎨 Colors
@@ -177,12 +177,12 @@ class Game:
         self.iconSurf = pg.image.load("icon.png")
         #self.iconTaskBar = pg.image.load("icon.ico")
         pg.display.set_icon(self.iconSurf)
-        subprocess.run([
-        "pyinstaller",
-        "--onefile",
-        "--icon=icon.ico",
-        "main.py"
-        ], cwd=r"C:\Users\tadea\OneDrive\Plocha\Files\pokusy 2\Grid system simulation")
+        #subprocess.run([
+        #"pyinstaller",
+        #"--onefile",
+        #"--icon=icon.ico",
+        #"main.py"
+        #], cwd=r"C:\Users\tadea\OneDrive\Plocha\Files\pokusy 2\Grid system simulation")
 
         self.gridSize = 12
         self.gridSizeSurface = self.gridSize * self.gridSize
