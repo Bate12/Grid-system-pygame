@@ -10,12 +10,73 @@ v.0.1
  - Select image in Explorer
  - + or - gridSize (cashe getting too slow, needs fix)
  - BUG FIXED: when you Select an image, and change gridSize, image gets lost
+ - BUG: convertImg method sometimes grabs wrong image from cashe due to same color conflict
+ - distribute cashe into different files via gridSize (path = colorData-12.json)
+ - Select file button
+ - Load everything in cashe
+ - Button for deleting cashe, ask if only this grid Size or all cashe
+ - (if possible) drag and drop images right into the pygame window
+ - BUG: line. 358 
 
 
  __________________________________________________
 
- - BUG: convertImg method sometimes grabs wrong image from cashe due to same color conflict
- - distribute cashe into different files via gridSize (path = colorData-12.json)
- - (if possible) drag and drop images right into the pygame window
+ - OPT: like new update dunc, instead of updating each color of the grid separetley, make a surface and just draw that surface only
+ - OPT (maybe): images of ui elements are drawn on a transparent surface across the screen
+ - 
  - Loading screen when getting color data from image
- 
+
+ __________________________________________________
+v.0.2
+  - Select image from icon list of images like galery App, add self.imagesIconSurf
+  - Select video, in new folder called the same as the video, generate frames on a low framerate (like 20-30 fps max), save the color Data into cashe with unique name
+
+
+
+
+
+
+
+
+# This class below is very AI, be careful :)
+# Its atcually funny, because its very not well made? like omg AI is ass for this.
+# Generally, I just use it for speeding up mundane tasks like making the colors, or some difficult line of code I dont know how to make
+# It's atcually crazy to me, how far I've come, coding is a hobby now lets goo :D
+
+# 12.9.2025 - Bate
+
+"""
+class Slider(Button):
+    def __init__(self, position, size, text="Slider", onClick=None, min_val=0, max_val=100, start_val=50):
+        super().__init__(position, size, text, onClick)
+
+        # Add Slider-specific attributes
+        self.min_val = min_val
+        self.max_val = max_val
+        self.value = start_val
+        self.handle_rect = pg.Rect(self.x, self.y, self.width, self.height)  # slider knob/handle
+
+    def update(self, mousePos, clicking):
+        # Use Button hover logic
+        super().update(mousePos, clicking)
+
+        # Add slider-specific behavior (dragging the handle)
+        if self.isHover and clicking:
+            relative_x = mousePos[0] - self.x
+            self.value = int((relative_x / self.width) * (self.max_val - self.min_val) + self.min_val)
+            self.value = max(self.min_val, min(self.value, self.max_val))  # clamp
+
+            # Update handle position
+            self.handle_rect.centerx = self.x + int((self.value - self.min_val) / (self.max_val - self.min_val) * self.width)
+
+    def render(self, win):
+        # Draw base button background
+        super().render(win)
+
+        # Draw slider line
+        pg.draw.line(win, (200, 200, 200), (self.x, self.y + self.height // 2), (self.x + self.width, self.y + self.height // 2), 4)
+
+        # Draw slider handle
+        pg.draw.rect(win, (255, 0, 0), self.handle_rect)
+"""
+            

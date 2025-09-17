@@ -10,7 +10,11 @@ from math import sin
 import json
 import cProfile, pstats
 from tkinter import Tk
-from tkinter.filedialog import askopenfilename
+from tkinter.filedialog import askopenfilename, askdirectory
+import hashlib
+import shutil
+import subprocess
+import pyinstaller
 
 
 # 🎨 Colors
@@ -92,49 +96,6 @@ class Button():
         win.blit(self.surface, (self.x, self.y))
         self.text.render(win)
 
-# This class below is very AI, be careful :)
-# Its atcually funny, because its very not well made? like omg AI is ass for this.
-# Generally, I just use it for speeding up mundane tasks like making the colors, or some difficult line of code I dont know how to make
-# It's atcually crazy to me, how far I've come, coding is a hobby now lets goo :D
-
-# 12.9.2025 - Bate
-
-"""
-class Slider(Button):
-    def __init__(self, position, size, text="Slider", onClick=None, min_val=0, max_val=100, start_val=50):
-        super().__init__(position, size, text, onClick)
-
-        # Add Slider-specific attributes
-        self.min_val = min_val
-        self.max_val = max_val
-        self.value = start_val
-        self.handle_rect = pg.Rect(self.x, self.y, self.width, self.height)  # slider knob/handle
-
-    def update(self, mousePos, clicking):
-        # Use Button hover logic
-        super().update(mousePos, clicking)
-
-        # Add slider-specific behavior (dragging the handle)
-        if self.isHover and clicking:
-            relative_x = mousePos[0] - self.x
-            self.value = int((relative_x / self.width) * (self.max_val - self.min_val) + self.min_val)
-            self.value = max(self.min_val, min(self.value, self.max_val))  # clamp
-
-            # Update handle position
-            self.handle_rect.centerx = self.x + int((self.value - self.min_val) / (self.max_val - self.min_val) * self.width)
-
-    def render(self, win):
-        # Draw base button background
-        super().render(win)
-
-        # Draw slider line
-        pg.draw.line(win, (200, 200, 200), (self.x, self.y + self.height // 2), (self.x + self.width, self.y + self.height // 2), 4)
-
-        # Draw slider handle
-        pg.draw.rect(win, (255, 0, 0), self.handle_rect)
-"""
-            
-
 
 class Tile:
     def __init__(self, id: int, row: int, col: int, gridSize: int, state: int = 0, color=()):
@@ -149,7 +110,7 @@ class Tile:
         self.sum = self.row + self.col
         self.arrowLen = self.sum / 10
         self.time = self.sum * 20
-        self.timeIncrement = 5
+        self.timeIncrement = 200
 
         self.state = state
         self.color = color if color else lightGrey
@@ -179,16 +140,16 @@ class Tile:
 
         self.color = (r, g, b)
 
-    def generateAngle(self, mousePos=[]):
-        self.time += self.timeIncrement
+    def generateAngle(self, dt):
+        self.time += self.timeIncrement * dt
         self.angle = Vec(1, 0).rotate(self.time)
         
     def makeArrow(self, win):
         pg.draw.line(win, self.color, self.center, self.pos2, self.gridSizeHalf)
         #pg.draw.circle(win, self.color, self.pos2, 1)
 
-    def update(self, mousePos):
-        self.generateAngle()
+    def update(self, dt):
+        self.generateAngle(dt)
         self.generateColor(self.time)
         self.pos2 = (self.angle * (self.gridSize*2)) + self.center
         
@@ -213,6 +174,15 @@ class Game:
         self.width, self.height = 800, 600
         self.screen = pg.display.set_mode((self.width, self.height))
         pg.display.set_caption(f"Grid simulation {self.id}")
+        self.iconSurf = pg.image.load("icon.png")
+        #self.iconTaskBar = pg.image.load("icon.ico")
+        pg.display.set_icon(self.iconSurf)
+        subprocess.run([
+        "pyinstaller",
+        "--onefile",
+        "--icon=icon.ico",
+        "main.py"
+        ], cwd=r"C:\Users\tadea\OneDrive\Plocha\Files\pokusy 2\Grid system simulation")
 
         self.gridSize = 12
         self.gridSizeSurface = self.gridSize * self.gridSize
@@ -221,11 +191,17 @@ class Game:
         self.tiles = []
         
         self.data = {}
+        self.baseCashePath = "cashe"
+        self.endFormats = [".png", ".jpg", ".jpeg", ".bmp"]
+        self.cashePath = f"{self.baseCashePath}/casheData-{self.gridSize}.json"
         self.cashe = self.initCashe()
 
         # Image handling
         self.imagesPath = "img_MC/"
+        
+        self.getFilesFromPath(self.imagesPath)
         self.imagesPaths = [f for f in os.listdir(self.imagesPath) if os.path.isfile(os.path.join(self.imagesPath, f))]
+        self.imageIcons = []
         self.imagesColorData = self.getImagesData()
         self.imageIndex = 0
         self.imageColors = self.imagesColorData[0]
@@ -246,9 +222,15 @@ class Game:
         self.buttonIncSize = Button((80, 50), (50, 40), "+", self.increaseGridSize, fontSize=40)
         self.buttonDecSize = Button((10, 50), (50, 40), "-", self.decreaseGridSize, fontSize=40)
         self.txtGridSize = Text(f"Grid Size - {self.gridSize}", 10, 10, 20, white)
-        self.buttonSelectImg = Button((10, 100), (150, 40), "Select Image", self.selectImageFile, fontSize=20)
 
-        self.slider = Slider(self.screen, 10, 220, 150, 10, min=0, max=99, step=1)
+        self.buttonSelectImg = Button((self.width - 160, self.height - 50), (150, 40), "Select Image", self.selectImageFile, fontSize=20)
+        self.buttonSelectFile = Button((self.width - 310, self.height - 50), (150, 40), "Select Folder", self.selectImageFolder, fontSize=20)
+
+        self.buttonDeleteLocalCashe = Button((self.width - 210, 2), (200, 40), "Delete Local cashe", self.deleteCasheLocal, fontSize=20)
+        self.buttonDeleteCashe = Button((self.width // 2 - 75, self.height // 2 - 20), (150, 40), "Are you sure?", self.deleteCashe, fontSize=20)
+        self.buttonDeleteCasheAsk = Button((self.width - 160, 50), (150, 40), "Delete cashe", self.switchDeleteCashe, fontSize=20)
+
+        self.buttonDrop = Button((0, 0), (self.width, self.height), "<- Drop Files in window ->", self.switchDeleteCashe, fontSize=20)
 
         #self.slider = Slider((200, 10), (2,64), "Speed")
         #self.slider.onClick = self.slider.
@@ -258,6 +240,9 @@ class Game:
         self.ui.append(self.buttonDecSize)
         self.ui.append(self.txtGridSize)
         self.ui.append(self.buttonSelectImg)
+        self.ui.append(self.buttonSelectFile)
+        self.ui.append(self.buttonDeleteLocalCashe)
+        self.ui.append(self.buttonDeleteCasheAsk)
 
         #self.ui.append(self.slider)
 
@@ -265,21 +250,110 @@ class Game:
         self.mouseLeftClick = False
         self.testCount = 0
 
-    def selectImageFile(self):
-        #Tk().withdraw()  # hide the root window
+    def getFilesFromPath(self, filepath):
+        print(f"FilePath: {filepath}")
+        paths =  [f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f))]
+        return paths
 
-        filename = askopenfilename(
-            title="Select an image file",
-            filetypes=[
-                ("Image files", "*.png *.jpg *.jpeg *.bmp *.gif"),
-                ("All files", "*.*")
-            ]
+    def onDropStart(self):
+        print("Drop started")
+
+    def onDropEnd(self):
+        choice = self.checkPathType(self.droppedFile)
+        print(f"Choice = {choice}")
+
+        if choice == "folder":
+            print(f"droppedFile: {self.droppedFile}")
+            self.addFromFolder(self.droppedFile)
+        elif choice == "image":
+            self.addFromImage(self.droppedFile)
+        else:
+            print(f"Dropping of {self.droppedFile} couldn't happen, path type: {choice}")
+        
+    def checkPathType(self, path):
+        if not path:
+            return "not found"
+        if os.path.isdir(path):
+            return "folder"
+        elif os.path.isfile(path):
+            ext = os.path.splitext(path)[1].lower()
+            if ext in self.endFormats:
+                return "image"
+            else:
+                return "file"
+
+    def switchDeleteCashe(self):
+        if self.buttonDeleteCashe in self.ui:
+            self.ui.remove(self.buttonDeleteCashe)
+            return
+        self.ui.append(self.buttonDeleteCashe)
+        
+
+    def deleteCashe(self):
+        shutil.rmtree(self.baseCashePath)
+        os.mkdir(self.baseCashePath)
+        self.switchDeleteCashe()
+
+    def deleteCasheLocal(self):
+        try:
+            os.remove(self.cashePath)
+        except:
+            pass
+            #print(f"ERROR-'{self.cashePath}' does not exist")
+
+    def selectImageFolder(self):
+        foldername = askdirectory(
+            title="Select a folder containing images"
         )
-
-        if not filename:
+        if not foldername:
             return
 
-        self.imagesPaths.append(filename)
+        # Collect all image files from the folder
+        """
+        filepaths = [
+            os.path.join(foldername, f)
+            for f in os.listdir(foldername)
+            if f.lower().endswith(tuple(self.endFormats))
+        ]
+        """
+        
+
+        self.addFromFolder(foldername)
+
+    def addFromFolder(self, basePath):
+        if not basePath:
+            print(f"Path {basePath} does not exist")
+            return
+        
+        filepaths = self.getFilesFromPath(basePath)
+        #print(f"BasePath: {basePath}")
+        #print(f"FilePaths: {filepaths}")
+
+        for filename in filepaths:
+            for end in self.endFormats:
+                if end not in filename:
+                    continue
+                    
+            fullPath = f"{basePath}\\{filename}"
+            #print(f"append filename {fullPath}")
+            self.imagesPaths.append(fullPath)
+            image = pg.image.load(fullPath).convert()
+            imageColors = self.convertImg(image)
+            self.imagesColorData.insert(self.imageIndex, imageColors)
+
+        # Load first image colors into tiles (like in selectImageFile)
+        self.imageColors = self.imagesColorData[self.imageIndex]
+        counter = 0
+        for tile in self.tiles:
+            tile.baseColor = self.imageColors[counter]
+            counter += 1
+
+    def onExit(self):
+        pass
+        #os.remove("cashe/colorData.json") 
+
+    def addFromImage(self, filename):
+        self.imagesPaths.insert(self.imageIndex, filename)
         image = pg.image.load(filename).convert()
         imageColors = self.convertImg(image)
         self.imagesColorData.insert(self.imageIndex,imageColors)
@@ -289,6 +363,20 @@ class Game:
         for tile in self.tiles:
             tile.baseColor = self.imageColors[counter]
             counter+=1
+
+
+    def selectImageFile(self):
+        filename = askopenfilename(
+            title="Select an image file",
+            filetypes=[
+                ("Image files", "*.png *.jpg *.jpeg *.bmp *.gif"),
+                ("All files", "*.*")
+            ]
+        )
+        if not filename:
+            return
+
+        self.addFromImage(filename)
 
     def decreaseGridSize(self):
         self.gridSize -= 2
@@ -308,12 +396,14 @@ class Game:
         self.cols = self.height // self.gridSize
         self.tiles = []
 
+        # Cashe update
+        self.cashePath = f"{self.baseCashePath}/casheData-{self.gridSize}.json"
+        self.cashe = self.updateCashe(self.cashe)
+
         # Image handling
         self.imagesColorData = self.getImagesData()
         self.imageColors = self.imagesColorData[self.imageIndex]
 
-        self.cashe = self.updateCashe(self.cashe)
-        
         # Create grid 
         counter = 0
         for r in range(0, self.rows):
@@ -327,14 +417,14 @@ class Game:
         return False
 
     def initCashe(self):
-        if os.path.exists("cashe/colorData.json"):
-            with open("cashe/colorData.json", "r", encoding="utf-8") as f:
+        if os.path.exists(self.cashePath):
+            with open(self.cashePath, "r", encoding="utf-8") as f:
                 try:
                     data = json.load(f)
                 except json.JSONDecodeError:
                     data = {}
         else:
-            open("myfile.txt", "x")
+            open(self.cashePath, "x")
             data = {}
 
         return data
@@ -342,7 +432,7 @@ class Game:
     def updateCashe(self, data):
         # Determine the starting index
         if data:
-            i = max(map(int, data.keys())) + 1
+            i = len(data)
         else:
             i = 0
 
@@ -354,7 +444,7 @@ class Game:
             i += 1
 
         # Save updated data
-        with open("cashe/colorData.json", "w", encoding="utf-8") as f:
+        with open(self.cashePath, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False)
 
         return data
@@ -394,11 +484,21 @@ class Game:
         self.testCount+=1
         print(f"{self.testCount} - Hello world")
 
+    
+
     def convertImg(self, image: pg.Surface):
-        image = pg.transform.scale(image, (self.width, self.height))
+        image = pg.transform.scale(image, (self.rows, self.cols))
+        #image = pg.transform.scale(image, (self.width, self.height))
         colors = []
         total_chunks = self.rows * self.cols
 
+        for x in range(0, self.rows):
+            for y in range(0, self.cols):
+                r, g, b, *_ = image.get_at((x, y))
+                clr = [r,g,b]
+                colors.append(clr)  # make it hashable
+
+        """
         for row in range(0, self.rows):
             for col in range(0, self.cols):
                 color_sum = [0, 0, 0]
@@ -417,26 +517,29 @@ class Game:
                     color_sum[1] // self.gridSizeSurface,
                     color_sum[2] // self.gridSizeSurface
                 ]
-
-                # For the first chunk only: check cache for a full cached palette match
-                if len(colors) == 0 and self.cashe:
-                    for _id, cached_colors in self.cashe.items():
-                        # ensure cached_colors length matches expected and first color matches
-                        if isinstance(cached_colors, list) and len(cached_colors) == total_chunks and cached_colors[0] == colorAvg:
-                            return cached_colors
-
-                colors.append(colorAvg)
+                colors.append(tuple(colorAvg))  # make it hashable
+        """
+        
 
         # Sanity check
         if len(colors) != total_chunks:
             raise ValueError(f"convertImg returned {len(colors)} colors but expected {total_chunks}")
 
+        # Build a unique cache key from the color list
+        key = hashlib.md5(str(colors).encode()).hexdigest()
+
+        if key in self.cashe:
+            return self.cashe[key]
+
+        # Save to cache
+        self.cashe[key] = colors
         return colors
+
 
 
     def drawGrid(self):    
         for tile in self.tiles:
-            tile.update(self.mousePos)
+            tile.update(self.dt)
             tile.render(self.screen)
         for tile in self.tiles:
             tile.makeArrow(self.screen)
@@ -477,17 +580,21 @@ class Game:
                 elif event.type == pg.KEYDOWN and event.key == pg.K_ESCAPE:
                     running = False
 
-                if event.type == pg.MOUSEBUTTONUP and event.button == 1:
+                elif event.type == pg.MOUSEBUTTONUP and event.button == 1:
                     self.mouseLeftClick = True
-                    
 
-            clock.tick(60)
+                elif event.type == pg.DROPFILE:
+                    self.droppedFile = event.file
+                    self.onDropEnd()                
+
+            self.dt = clock.tick(60) / 1000
             fps = str(round(clock.get_fps(), 2))
             self.updateTitle(fps)
 
             self.update()
             self.render()
 
+        self.onExit()
         pg.quit()
 
 if __name__ == "__main__":
