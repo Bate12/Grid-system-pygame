@@ -33,7 +33,7 @@ ___
 
 ![Progress 2 - limit testing cashe](https://github.com/Bate12/Grid-system-pygame/blob/main/progress2.png?raw=true)
 
-![Progress 3 - limit testing pre-v.0.1](https://youtu.be/AA_baFMNrfQ)
+[Progress 3 - limit testing pre-v.0.1](https://youtu.be/AA_baFMNrfQ)
 ___
 ## Contact
 TadeasBaier@seznam.cz
