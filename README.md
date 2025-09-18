@@ -1,6 +1,6 @@
 # Grid simulation 
 ![Logo](https://github.com/Bate12/Grid-system-pygame/blob/main/icon.png?raw=true)
-__
+
 ## Introduction
 This is pygame project made in python, and I believe it to be one of, if not one of the best project I've ever worked on and I love it. I love every part of it and it really amazes me how far I've come as a Developer and programer.
 I feel like I've done so good with this project, because I'm trying to eliminate most of AI tools and really make it myself. It taught me so much not using AI like a maniac trying to find the solution.
@@ -30,9 +30,9 @@ Also, I will maybe consider uploading to ich.io or any other forums
 ___
 ## Screenshots
 ![before release v.0.1PNG.PNG](https://github.com/Bate12/Grid-system-pygame/blob/main/before%20release%20v.0.1PNG.PNG?raw=true)
-__
+
 ![Progress 2 - limit testing cashe](https://github.com/Bate12/Grid-system-pygame/blob/main/progress2.png?raw=true)
-__
+
 ![Progress 3 - limit testing pre-v.0.1](https://youtu.be/AA_baFMNrfQ)
 ___
 ## Contact
