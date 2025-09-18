@@ -14,7 +14,7 @@ from tkinter.filedialog import askopenfilename, askdirectory
 import hashlib
 import shutil
 import subprocess
-#import pyinstaller
+import threading
 
 
 # 🎨 Colors
@@ -110,7 +110,7 @@ class Tile:
         self.sum = self.row + self.col
         self.arrowLen = self.sum / 10
         self.time = self.sum * 20
-        self.timeIncrement = 200
+        #self.timeIncrement = 200
 
         self.state = state
         self.color = color if color else lightGrey
@@ -140,16 +140,16 @@ class Tile:
 
         self.color = (r, g, b)
 
-    def generateAngle(self, dt):
-        self.time += self.timeIncrement * dt
+    def generateAngle(self, dt, increment):
+        self.time += increment * dt
         self.angle = Vec(1, 0).rotate(self.time)
         
     def makeArrow(self, win):
         pg.draw.line(win, self.color, self.center, self.pos2, self.gridSizeHalf)
         #pg.draw.circle(win, self.color, self.pos2, 1)
 
-    def update(self, dt):
-        self.generateAngle(dt)
+    def update(self, dt, increment=200):
+        self.generateAngle(dt, increment)
         self.generateColor(self.time)
         self.pos2 = (self.angle * (self.gridSize*2)) + self.center
         
@@ -206,7 +206,7 @@ class Game:
         self.imageIndex = 0
         self.imageColors = self.imagesColorData[0]
 
-        self.cashe = self.updateCashe(self.cashe)
+        self.updateCashe()
         
         # Create grid 
         counter = 0
@@ -215,13 +215,19 @@ class Game:
                 self.tiles.append(Tile(counter, r, c, self.gridSize, color=self.imageColors[counter]))
                 counter+=1
 
+        # Changable variables via UI
+        self.timeIncrement = 200
+        self.timeIncrementValue = 20
+        self.gridSizeIncrement = 2
+
         # UI elements:
         self.ui = []
         self.buttonBack = Button((10, self.height//2), (50, 40), "<", self.cycleImageBack, fontSize=40)
         self.buttonUp = Button((self.width - 60, self.height//2), (50, 40), ">", self.cycleImage, fontSize=40)
-        self.buttonIncSize = Button((80, 50), (50, 40), "+", self.increaseGridSize, fontSize=40)
-        self.buttonDecSize = Button((10, 50), (50, 40), "-", self.decreaseGridSize, fontSize=40)
-        self.txtGridSize = Text(f"Grid Size - {self.gridSize}", 10, 10, 20, white)
+        
+        self.buttonIncSize = Button((200, 10), (50, 40), "+", self.increaseGridSize, fontSize=40)
+        self.buttonDecSize = Button((10, 10), (50, 40), "-", self.decreaseGridSize, fontSize=40)
+        self.txtGridSize = Text(f"Grid Size - {self.gridSize}", 65, 20, 20, white)
 
         self.buttonSelectImg = Button((self.width - 160, self.height - 50), (150, 40), "Select Image", self.selectImageFile, fontSize=20)
         self.buttonSelectFile = Button((self.width - 310, self.height - 50), (150, 40), "Select Folder", self.selectImageFolder, fontSize=20)
@@ -249,6 +255,12 @@ class Game:
         # Event handling
         self.mouseLeftClick = False
         self.testCount = 0
+
+    def decreaseTimeIncrement(self):
+        self.timeIncrement -= self.timeIncrementValue
+
+    def increaseTimeIncrement(self):
+        self.timeIncrement += self.timeIncrementValue
 
     def getFilesFromPath(self, filepath):
         print(f"FilePath: {filepath}")
@@ -326,17 +338,20 @@ class Game:
             return
         
         filepaths = self.getFilesFromPath(basePath)
-        #print(f"BasePath: {basePath}")
-        #print(f"FilePaths: {filepaths}")
 
         for filename in filepaths:
+            goNext = True
             for end in self.endFormats:
-                if end not in filename:
-                    continue
+                if end in filename:
+                    goNext = False
+
+            if goNext:
+                print(f"Skipping file {filename} from basePath {basePath}")
+                continue
                     
             fullPath = f"{basePath}\\{filename}"
-            #print(f"append filename {fullPath}")
-            self.imagesPaths.append(fullPath)
+            self.imagesPaths.insert(self.imageIndex,fullPath)
+
             image = pg.image.load(fullPath).convert()
             imageColors = self.convertImg(image)
             self.imagesColorData.insert(self.imageIndex, imageColors)
@@ -379,13 +394,14 @@ class Game:
         self.addFromImage(filename)
 
     def decreaseGridSize(self):
-        self.gridSize -= 2
+        self.gridSize -= self.gridSizeIncrement
         if self.gridSize <= 0:
+            self.gridSize += self.gridSizeIncrement
             return
         self.handleSizeChange()
 
     def increaseGridSize(self):
-        self.gridSize += 2
+        self.gridSize += self.gridSizeIncrement
         self.handleSizeChange()
         
     def handleSizeChange(self):
@@ -397,8 +413,9 @@ class Game:
         self.tiles = []
 
         # Cashe update
+        self.cashe = self.initCashe()
         self.cashePath = f"{self.baseCashePath}/casheData-{self.gridSize}.json"
-        self.cashe = self.updateCashe(self.cashe)
+        self.updateCashe()
 
         # Image handling
         self.imagesColorData = self.getImagesData()
@@ -429,31 +446,58 @@ class Game:
 
         return data
 
-    def updateCashe(self, data):
-        # Determine the starting index
-        if data:
-            i = len(data)
+    def updateCashe(self):
+        def writer(data, path):
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+
+        # copy dict to avoid race conditions if self.cache changes while writing
+        data_copy = dict(self.cashe)
+
+        thread = threading.Thread(target=writer, args=(data_copy, self.cashePath))
+        thread.daemon = True  # dies with the main program
+        thread.start()
+
+    def updateCasheSingle(self, key, colors):
+        # Only add if the key is new
+        if key in self.cashe:
+            return False  # nothing changed
+
+        # Update in-memory cashe
+        self.cashe[key] = colors
+
+        # Append to JSON file
+        if not os.path.exists(self.cashePath) or os.path.getsize(self.cashePath) == 0:
+            # If file doesn't exist or is empty, write a new dict
+            with open(self.cashePath, "w", encoding="utf-8") as f:
+                json.dump({key: colors}, f, indent=4, ensure_ascii=False)
         else:
-            i = 0
+            # Append inside existing JSON object
+            with open(self.cashePath, "rb+") as f:
+                f.seek(-1, os.SEEK_END)  # move to last character
+                last_char = f.read(1)
 
-        # Add new entries
-        for chunkColor in self.imagesColorData:
-            if chunkColor in data.values():
-                continue
-            data[i] = chunkColor
-            i += 1
+                if last_char == b"}":
+                    # Remove the closing brace
+                    f.seek(-1, os.SEEK_END)
+                    f.truncate()
 
-        # Save updated data
-        with open(self.cashePath, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=4, ensure_ascii=False)
+                    # Add comma + new key
+                    f.write(b",\n")
+                    f.write(json.dumps(key, ensure_ascii=False).encode("utf-8"))
+                    f.write(b": ")
+                    f.write(json.dumps(colors, ensure_ascii=False, indent=4).encode("utf-8"))
+                    f.write(b"\n}")  # close the dict properly
+                else:
+                    raise ValueError("Invalid JSON structure in cashe file")
 
-        return data
-
+        return True
 
     def getImagesData(self):
         imgColors = []
         for path in self.imagesPaths:
-            if "/" not in path:
+            if "/" not in path and "\\" not in path:
+                #print(f"Tady udajně neni")
                 path = self.imagesPath + path
             image = pg.image.load(path).convert()
             imageColors = self.convertImg(image)
@@ -498,29 +542,6 @@ class Game:
                 clr = [r,g,b]
                 colors.append(clr)  # make it hashable
 
-        """
-        for row in range(0, self.rows):
-            for col in range(0, self.cols):
-                color_sum = [0, 0, 0]
-                x0 = row * self.gridSize
-                y0 = col * self.gridSize
-
-                for x in range(x0, x0 + self.gridSize):
-                    for y in range(y0, y0 + self.gridSize):
-                        r, g, b, *_ = image.get_at((x, y))
-                        color_sum[0] += r
-                        color_sum[1] += g
-                        color_sum[2] += b
-
-                colorAvg = [
-                    color_sum[0] // self.gridSizeSurface,
-                    color_sum[1] // self.gridSizeSurface,
-                    color_sum[2] // self.gridSizeSurface
-                ]
-                colors.append(tuple(colorAvg))  # make it hashable
-        """
-        
-
         # Sanity check
         if len(colors) != total_chunks:
             raise ValueError(f"convertImg returned {len(colors)} colors but expected {total_chunks}")
@@ -533,13 +554,12 @@ class Game:
 
         # Save to cache
         self.cashe[key] = colors
+        self.updateCasheSingle(key, colors)
         return colors
-
-
 
     def drawGrid(self):    
         for tile in self.tiles:
-            tile.update(self.dt)
+            tile.update(self.dt, self.timeIncrement)
             tile.render(self.screen)
         for tile in self.tiles:
             tile.makeArrow(self.screen)
@@ -602,7 +622,7 @@ if __name__ == "__main__":
     game.run()
 
 """
- Profiler start
+# Profiler start
 if __name__ == "__main__":
     profiler = cProfile.Profile()
     profiler.enable()

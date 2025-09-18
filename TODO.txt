@@ -17,19 +17,32 @@ v.0.1
  - Button for deleting cashe, ask if only this grid Size or all cashe
  - (if possible) drag and drop images right into the pygame window
  - BUG: line. 358 
-
+ - im starting to realize that cashe is useless rn, convertImg is atcually fast, it is just waiting for cashe to write all files
+   Solution: make the writing to a separate thread, self.updateCasheSingle
 
  __________________________________________________
+Before release
+ - clean up code - classes into separate folder, comments all over the play, unuseful prints, clear cashe
+ - Just make executable and release on github
 
- - OPT: like new update dunc, instead of updating each color of the grid separetley, make a surface and just draw that surface only
+
+
+
+  __________________________________________________
+v.0.2
+
+ - OPT: like new update dunc, instead of updating each tile of the grid separetley, make a surface and just draw that surface only
  - OPT (maybe): images of ui elements are drawn on a transparent surface across the screen
- - 
+ - Toggle arrow render, color change effect 
  - Loading screen when getting color data from image
 
- __________________________________________________
-v.0.2
-  - Select image from icon list of images like galery App, add self.imagesIconSurf
-  - Select video, in new folder called the same as the video, generate frames on a low framerate (like 20-30 fps max), save the color Data into cashe with unique name
+ - List of images icons (scaled down), add self.imagesSmallSurf list
+ - Select image from icon list of images like galery App
+ - Select video, in new folder called the same as the video, generate frames on a low framerate (like 20-30 fps max),
+   save the color Data into cashe with unique name
+ - Add a way to hide UI and text
+ - Ask user if you want to save changes, saves all parameters to a file 
+ - Localization CZ, SK, EN
 
 
 
