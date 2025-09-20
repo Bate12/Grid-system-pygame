@@ -23,6 +23,7 @@ v.0.1
  __________________________________________________
 Before release
  - clean up code - classes into separate folder, comments all over the play, unuseful prints, clear cashe
+ - on start dont show any images, just blank screen with text "Import images with Select Image / Select Folder or Drag and Drop Images / Files"
  - Just make executable and release on github
 
 
